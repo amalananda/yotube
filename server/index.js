@@ -62,6 +62,17 @@ type User {
     posts: [Post]
     follows: [Follow]
   }
+
+  input UserInput {
+    name: String
+      username: String!
+      email: String!
+      password: String!
+  }
+
+  type Mutation {
+    addUser(user:UserInput!):User
+  }
 `
 
 const users = [
@@ -132,9 +143,16 @@ const resolvers = {
       return follows
     },
   },
-  // Mutation: {
-
-  // }
+  Mutation: {
+    addUser: (parent, args, context, info) => {
+      const newUser = {
+        _id: (users.length + 1).toString(),
+        ...args.user,
+      }
+      users.push(newUser)
+      return newUser
+    }
+  }
 }
 
 async function startServer() {
