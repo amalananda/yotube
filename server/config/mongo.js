@@ -1,9 +1,10 @@
-
 const { MongoClient, ServerApiVersion } = require('mongodb')
 require('dotenv').config()
+
+// Mendapatkan URI dari environment variable
 const uri = process.env.uri
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+// Membuat client MongoDB dengan konfigurasi versi API
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -12,16 +13,23 @@ const client = new MongoClient(uri, {
   }
 })
 
-async function run() {
+// Fungsi untuk menghubungkan ke MongoDB
+async function database() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
+    // Koneksi ke server MongoDB
     await client.connect()
-    // Send a ping to confirm a successful connection
+    console.log("Successfully connected to MongoDB!")
+
+    // Verifikasi koneksi dengan perintah ping
     await client.db("gc01-database").command({ ping: 1 })
     console.log("Pinged your deployment. You successfully connected to MongoDB!")
-  } finally {
-    // Ensures that the client will close when you finish/error
-    await client.close()
+
+    // Mengembalikan database untuk digunakan
+    return client.db("gc01-database")
+  } catch (err) {
+    console.error("Error connecting to MongoDB:", err)
+    throw new Error("Failed to connect to MongoDB")
   }
 }
-run().catch(console.dir)
+
+module.exports = database
