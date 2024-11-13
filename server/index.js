@@ -8,6 +8,11 @@ const {
   typeDefs: followerTypeDefs,
   resolvers: followerResolvers
 } = require('./schema/follower')
+const {
+  typeDefs: postTypeDefs,
+  resolvers: postResolvers
+} = require('./schema/post')
+
 
 // A schema is a collection of type definitions (hence "typeDefs")
 // that together define the "shape" of queries that are executed against
@@ -167,8 +172,8 @@ const follows = [
 //     }
 //   }
 // }
-const typeDefs = [userTypeDefs, followerTypeDefs]
-const resolvers = [userResolvers, followerResolvers]
+const typeDefs = [userTypeDefs, followerTypeDefs, postTypeDefs]
+const resolvers = [userResolvers, followerResolvers, postResolvers]
 
 async function startServer() {
   const server = new ApolloServer({
@@ -178,6 +183,7 @@ async function startServer() {
 
   const { url } = await startStandaloneServer(server, {
     listen: { port: 3000 },
+
   })
   console.log(`Server ready at ${url}`)
 }
