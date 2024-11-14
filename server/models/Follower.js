@@ -59,6 +59,24 @@ class Follower {
     }
   }
 
+  static async countFollowing(userId) {
+    try {
+      const db = await database()
+      const followingsCollection = db.collection("followers")
+
+      const result = await followingsCollection.aggregate([
+        { $match: { followingId: new ObjectId(userId) } },
+        { $count: "totalFollowers" }
+      ]).toArray()
+
+      // Jika hasilnya kosong, berarti followers-nya 0
+      return result[0]?.totalFollowers || 0
+    } catch (err) {
+      console.error("Error in countFollowing:", err)
+      throw new Error("Error counting following")
+    }
+  }
+
 
   static async createFollow(followerId, followingId) {
     const db = await database()

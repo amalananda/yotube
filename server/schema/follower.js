@@ -19,7 +19,7 @@ type Follow {
     # addFollower(user:UserInput!):User,
     # addFollowing
     followUser(followerId: ID!, followingId: ID!): Follow
-    unfollowUser(followerId: ID!, followingId: ID!): String
+    # unfollowUser(followerId: ID!, followingId: ID!): String
   }
 
   input FollowerInput {
