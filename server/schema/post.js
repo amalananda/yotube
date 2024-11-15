@@ -1,4 +1,8 @@
+const redis = require('../config/redis')
 const Post = require('../models/Post')
+const { ObjectId } = require('mongodb')
+
+
 
 const typeDefs = `#graphql
 
@@ -8,12 +12,18 @@ type Post {
     tags: [String]
     imgUrl: String
     authorId: ID! # (required)
-    authorDetails: User
+    authorDetails: Author
     comments: [Comment]
     likes: [Like]
     createdAt: String
     updatedAt: String
   }
+  type Author {
+  _id: ID
+  username: String
+  imgUrl: String
+}
+
   type Comment {
     content: String!
     username: String!
@@ -28,6 +38,7 @@ type Post {
   }
   type Query {
     posts: [Post]
+    postsSorted: [Post]
     postById(id: ID!): Post
   }
   type Mutation {
@@ -55,12 +66,17 @@ const resolvers = {
   Query: {
     posts: async () => {
       try {
-        return await Post.findAll()
+        const memory = await redis.get("posts")
+        if (memory) return JSON.parse(memory)
+        const posts = await Post.findAll()
+        redis.set("posts", JSON.stringify(posts))
+        return posts
       } catch (err) {
+        console.log(err)
         throw new Error("Failed to fetch posts")
       }
     },
-    posts: async () => {
+    postsSorted: async () => {
       try {
         return await Post.findAllSorted()
       } catch (err) {
@@ -69,7 +85,9 @@ const resolvers = {
     },
     postById: async (_, { id }) => {
       try {
-        return await Post.findById(id)
+        const post = await Post.findById(id)
+        // Ensure the post has authorDetails populated before returning
+        return post
       } catch (err) {
         throw new Error("Failed to fetch post by id")
       }
@@ -85,7 +103,7 @@ const resolvers = {
         content,
         tags,
         imgUrl,
-        authorId,
+        new ObjectId(authorId),
         createdAt,
         updatedAt
       )
@@ -101,7 +119,7 @@ const resolvers = {
         createdAt,
         updatedAt,
       }
-
+      await redis.del("posts")
       return savedPost
     },
     commentPost: async (_, { postId, comment }) => {
