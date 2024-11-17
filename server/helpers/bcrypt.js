@@ -1,12 +1,17 @@
 const bcrypt = require("bcrypt")
 
 const hashPassword = (password) => {
+  if (!password) {
+    throw new Error("Password kosong atau invalid!")
+  }
   const salt = bcrypt.genSaltSync(10)
-  return bcrypt.hashSync(password, salt)
+  const hashed = bcrypt.hashSync(password, salt)
+
+  return hashed
 }
 
-const comparePassword = (inputPassword, hashedPassword) => {
-  return bcrypt.compareSync(inputPassword, hashedPassword)
+const comparePassword = (password, hashedPassword) => {
+  return bcrypt.compareSync(password, hashedPassword)
 }
 
 module.exports = { hashPassword, comparePassword }

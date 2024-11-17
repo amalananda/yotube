@@ -12,6 +12,7 @@ const {
   typeDefs: postTypeDefs,
   resolvers: postResolvers
 } = require('./schema/post')
+const { verifyToken } = require('./helpers/jwt')
 
 
 const typeDefs = [userTypeDefs, followerTypeDefs, postTypeDefs]
@@ -23,40 +24,21 @@ async function startServer() {
     resolvers,
   })
 
-  const { url } = await startStandaloneServer(server, {
+  startStandaloneServer(server, {
     listen: { port: 3000 },
     context: ({ req }) => {
       return {
-        authentication: () => {
-          const authorizationValue = req.headers?.authorization
-          const message = "Invalid Token"
-          if (!authorizationValue) {
-            throw new GraphQLError(message, {
-              extensions: {
-                code: "INVALID_TOKEN",
-                http: {
-                  status: 401,
-                },
-              },
-            })
-          }
-          const [bearer, token] = authorizationValue.split(" ")
-          if (bearer !== "Bearer" || !token) {
-            throw new GraphQLError(message, {
-              extensions: {
-                code: "INVALID_TOKEN",
-                http: {
-                  status: 401,
-                },
-              },
-            })
-          }
-          const payload = verifyToken(token)
-          return payload
+        auth: () => {
+          const token = req.headers.authorization
+          if (!token) throw new Error("Unauthorized")
+          const bearer = token.split(' ')[1]
+          const user = verifyToken(bearer)
+          return user
         },
       }
     },
+  }).then(({ url }) => {
+    console.log(`🚀  Server ready at: ${url}`)
   })
-  console.log(`🚀 Server ready at ${url}`)
 }
 startServer()

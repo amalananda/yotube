@@ -9,26 +9,24 @@ class User {
       const db = await database()
       const usersCollection = db.collection("users")
 
-      // Cek apakah email sudah terdaftar
       const emailExist = await usersCollection.findOne({ email })
       if (emailExist) {
-        console.log("Email Exist Check: ", emailExist)
-        throw new Error("Email sudah terdaftar.")  // Lempar error jika email sudah ada
+        throw new Error("Email sudah terdaftar.")
       }
 
-      const passwordHash = hashPassword(password)
+      const hashedPassword = hashPassword(password)
       const result = await usersCollection.insertOne({
         name,
         username,
         email,
-        password: passwordHash, // Simpan password yang sudah di-hash
+        password: hashedPassword,
       })
 
       return {
         _id: result.insertedId.toString(),
         name,
         username,
-        email, // Mengembalikan user baru dengan ID
+        email,
       }
     } catch (err) {
       console.error("Error in register:", err)
@@ -43,13 +41,11 @@ class User {
 
       const user = await usersCollection.findOne({ email })
       if (!user) {
-        throw new Error("Pengguna tidak ditemukan.")  // Lempar error jika user tidak ditemukan
+        throw new Error("Pengguna tidak ditemukan.")
       }
-
-      // Cek apakah password sesuai
-      const isPasswordValid = comparePassword(password, user.password) // Pastikan compare menggunakan bcrypt
+      const isPasswordValid = comparePassword(password, user.password)
       if (!isPasswordValid) {
-        throw new Error("Password salah.")  // Lempar error jika password salah
+        throw new Error("Password salah.")
       }
       const payload = { id: user._id, email: user.email }
       const token = signToken(payload)
@@ -64,14 +60,13 @@ class User {
 
   static async findAll() {
     try {
-      // Pastikan koneksi berhasil
+
       const db = await database()
       const usersCollection = db.collection("users")
 
-      // Ubah id string menjadi ObjectId
       const users = await usersCollection.find().toArray()
 
-      // Konversi _id menjadi string untuk setiap user
+
       return users.map(user => ({
         ...user,
         _id: user._id.toString()
@@ -112,12 +107,12 @@ class User {
       throw new Error("Error fetching user by id")
     }
   }
+
   static async search(query) {
     try {
       const db = await database()
       const usersCollection = db.collection("users")
 
-      // Cari pengguna berdasarkan nama atau username yang mengandung query
       const regex = new RegExp(query, "i")  // Case-insensitive regex
       const users = await usersCollection.find({
         $or: [
@@ -141,31 +136,42 @@ class User {
       const userCollection = db.collection("followers")
       const result = await userCollection.aggregate([
         { $match: { followingId: new ObjectId(userId) } },
+        // {
+        //   $lookup: {
+        //     from: "followers",
+        //     localField: "_id",
+        //     foreignField: "followingId",
+        //     as: "followers"
+        //   }
+        // },
         {
           $lookup: {
             from: "users",
             localField: "followerId",
             foreignField: "_id",
-            as: "user"
+            as: "followers"
           }
         },
         {
-          $unwind: "$user"
+          $unwind: {
+            path: "$followers",
+            preserveNullAndEmptyArrays: true,
+          },
         },
         {
           $project: {
-            _id: "$user._id",
-            name: "$user.name",
-            username: "$user.username"
+            followers: 1,
+            _id: 0,
+
           }
         }
       ]).toArray()
 
-      // Konversi _id pengguna di followers menjadi string
-      return result.map(follower => ({
-        ...follower,
-        _id: follower._id.toString()
-      }))
+
+      console.log(result, '>>><<<')
+      const filteredResult = result.filter(follower => follower.followers !== null)
+
+      return filteredResult
     } catch (err) {
       console.error("Error in follower:", err)
       throw new Error("Error fetching followers")
@@ -180,33 +186,82 @@ class User {
         { $match: { followerId: new ObjectId(userId) } },
         {
           $lookup: {
-            from: "users",
-            localField: "followingId",
-            foreignField: "_id",
-            as: "user"
+            from: "following",
+            localField: "_id",
+            foreignField: "followerId",
+            as: "following"
           }
         },
         {
-          $unwind: "$user"
+          $unwind: {
+            path: "$following",
+            preserveNullAndEmptyArrays: true,
+          },
         },
-        {
-          $project: {
-            _id: "$user._id",
-            name: "$user.name",
-            username: "$user.username"
-          }
-        }
       ]).toArray()
 
-      // Konversi _id pengguna di followings menjadi string
-      return result.map(following => ({
-        ...following,
-        _id: following._id.toString()
-      }))
+
+      console.log(result)
+      return result
     } catch (err) {
       console.error("Error in following:", err)
       throw new Error("Error fetching followings")
     }
+  }
+  static async getUserWithFollowersAndFollowing(userId) {
+    const db = await database()
+    const userCollection = db.collection("followers")
+
+    const user = await userCollection.findOne({ _id: new ObjectId(userId) })
+    if (!user) throw new GraphQLError("User not found")
+    console.log(user, ">>>")
+    const followers = await followCollection
+      .aggregate([
+        { $match: { followingId: new ObjectId(userId) } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "followerId",
+            foreignField: "_id",
+            as: "users",
+          },
+        },
+        { $unwind: "$users" },
+        {
+          $project: {
+            _id: 0,
+            name: "$followerUsers.name",
+            username: "$followerUsers.username",
+          },
+        },
+
+      ])
+      .toArray()
+
+    const followings = await followCollection
+      .aggregate([
+        { $match: { followerId: new ObjectId(userId) } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "followingId",
+            foreignField: "_id",
+            as: "users",
+          },
+        },
+        { $unwind: "$users" },
+        {
+          $project: {
+            _id: 0,
+            name: "$followingUsers.name",
+            username: "$followingUsers.username",
+          },
+        },
+        { $replaceRoot: { newRoot: "$followingUsers", username: "$followingUsers.username" } },
+      ])
+      .toArray()
+
+    return { ...user, followers, followings }
   }
 }
 

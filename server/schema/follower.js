@@ -10,16 +10,13 @@ type Follow {
     updatedAt: String
   }
   type Query {
-    followers(userId: ID!): [Follow]        # Mendapatkan daftar pengguna yang mengikuti user tertentu
-    following(userId: ID!): [Follow]        # Mendapatkan daftar pengguna yang diikuti oleh user tertentu
+    followers(userId: ID!): [Follow]
+    following(userId: ID!): [Follow]
     followersCount(userId: ID!): Int
     followingCount(userId: ID!): Int
   }
   type Mutation {
-    # addFollower(user:UserInput!):User,
-    # addFollowing
     followUser(followerId: ID!, followingId: ID!): Follow
-    # unfollowUser(followerId: ID!, followingId: ID!): String
   }
 
   input FollowerInput {
@@ -36,7 +33,8 @@ const resolvers = {
   Query: {
     followers: async (_, { userId }) => {
       try {
-        return await Follower.findAllUserFollower(userId)
+        const followers = await Follower.findAllUserFollower(userId)
+        return followers || []  // Pastikan ini adalah array
       } catch (err) {
         console.error("Error in followers:", err)
         throw new Error("Failed to fetch followers")
@@ -44,7 +42,8 @@ const resolvers = {
     },
     following: async (_, { userId }) => {
       try {
-        return await Follower.findAllUserFollowing(userId)
+        const followings = await Follower.findAllUserFollowing(userId)
+        return followings || []
       } catch (err) {
         console.error("Error in following:", err)
         throw new Error("Failed to fetch following")

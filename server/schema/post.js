@@ -8,10 +8,10 @@ const typeDefs = `#graphql
 
 type Post {
     _id: ID!
-    content: String! # (required)
+    content: String # (required)
     tags: [String]
     imgUrl: String
-    authorId: ID! # (required)
+    authorId: ID # (required)
     authorDetails: Author
     comments: [Comment]
     likes: [Like]
@@ -62,10 +62,12 @@ input LikeInput {
   username: String!
 }
 `
+
 const resolvers = {
   Query: {
-    posts: async () => {
+    posts: async (_, __, { auth }) => {
       try {
+        auth()
         const memory = await redis.get("posts")
         if (memory) return JSON.parse(memory)
         const posts = await Post.findAll()
@@ -76,17 +78,18 @@ const resolvers = {
         throw new Error("Failed to fetch posts")
       }
     },
-    postsSorted: async () => {
+    postsSorted: async (_, __, { auth }) => {
       try {
+        auth()
         return await Post.findAllSorted()
       } catch (err) {
         throw new Error("Failed to fetch posts")
       }
     },
-    postById: async (_, { id }) => {
+    postById: async (_, { id }, { auth }) => {
       try {
+        auth()
         const post = await Post.findById(id)
-        // Ensure the post has authorDetails populated before returning
         return post
       } catch (err) {
         throw new Error("Failed to fetch post by id")
@@ -94,7 +97,8 @@ const resolvers = {
     }
   },
   Mutation: {
-    addPost: async (_, args) => {
+    addPost: async (_, args, { auth }) => {
+      auth()
       const { content, tags, imgUrl, authorId } = args
       const createdAt = new Date()
       const updatedAt = new Date()
@@ -122,7 +126,8 @@ const resolvers = {
       await redis.del("posts")
       return savedPost
     },
-    commentPost: async (_, { postId, comment }) => {
+    commentPost: async (_, { postId, comment }, { auth }) => {
+      auth()
       const newComment = {
         ...comment,
         createdAt: new Date().toISOString(),
@@ -131,7 +136,8 @@ const resolvers = {
       const updatedPost = await Post.addComment(postId, newComment)
       return updatedPost
     },
-    likePost: async (_, { postId, like }) => {
+    likePost: async (_, { postId, like }, { auth }) => {
+      auth()
       const newLike = {
         ...like,
         createdAt: new Date().toISOString(),

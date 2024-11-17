@@ -9,7 +9,7 @@ class Post {
       const posts = await postsCollection.aggregate([
         {
           $lookup: {
-            from: "users",  // Nama koleksi pengguna
+            from: "users",
             localField: "authorId",
             foreignField: "_id",
             as: "authorDetails"
@@ -18,14 +18,14 @@ class Post {
         {
           $unwind: {
             path: "$authorDetails",
-            preserveNullAndEmptyArrays: true  // Menangani kasus jika authorDetails tidak ditemukan
+            preserveNullAndEmptyArrays: true
           }
         }
       ]).toArray()
 
       return posts.map(post => ({
         ...post,
-        _id: post._id.toString(),  // Pastikan _id adalah string
+        _id: post._id.toString(),
         authorDetails: post.authorDetails ? {
           username: post.authorDetails.username,
           imgUrl: post.authorDetails.imgUrl
@@ -61,8 +61,17 @@ class Post {
     ]).toArray()
 
     if (post.length > 0) {
-      post[0]._id = post[0]._id.toString()
-      return post[0]
+      const finalPost = post[0]
+      return {
+        ...finalPost,
+        _id: finalPost._id.toString(),
+        authorDetails: finalPost.authorDetails
+          ? {
+            username: finalPost.authorDetails.username,
+            imgUrl: finalPost.authorDetails.imgUrl
+          }
+          : null // Jika authorDetails kosong
+      }
     } else {
       throw new Error("Post not found")
     }
@@ -82,7 +91,7 @@ class Post {
       authorId: new ObjectId(authorId),
       comments: [],
       likes: [],
-      createdAt: new Date(createdAt).toISOString(),  // Mengonversi ke format string ISO
+      createdAt: new Date(createdAt).toISOString(),
       updatedAt: new Date(updatedAt).toISOString(),
     })
     return newPost

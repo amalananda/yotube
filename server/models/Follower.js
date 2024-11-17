@@ -4,11 +4,28 @@ const { ObjectId } = require('mongodb')
 class Follower {
   static async findAllUserFollower(userId) {
     try {
-      // Pastikan koneksi berhasil
+
       const db = await database()
       const followersCollection = db.collection("followers")
-      // Ubah id string menjadi ObjectId
-      const followers = await followersCollection.find({ followerId: new ObjectId(userId) }).toArray()
+      const followers = await followersCollection.aggregate([
+        { $match: { followingId: new ObjectId(userId) } },
+        {
+          $lookup: {
+            from: "followers",
+            localField: "_id",
+            foreignField: "followingId",
+            as: "followers"
+          }
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "followerId",
+            foreignField: "_id",
+            as: "followers"
+          }
+        },
+      ]).toArray()
       // console.log("userId", userId)
       // console.log("followers", followers)
 
@@ -24,14 +41,12 @@ class Follower {
   }
   static async findAllUserFollowing(userId) {
     try {
-      // Pastikan koneksi berhasil
+
       const db = await database()
       const followingCollection = db.collection("followers")
 
-      // Ubah id string menjadi ObjectId
       const following = await followingCollection.find({ followingId: new ObjectId(userId) }).toArray()
 
-      // Konversi _id menjadi string untuk setiap user
       return following.map(following => ({
         ...following,
         _id: following._id.toString()
@@ -51,7 +66,6 @@ class Follower {
         { $count: "totalFollowing" }
       ]).toArray()
 
-      // Jika hasilnya kosong, berarti following-nya 0
       return result[0]?.totalFollowing || 0
     } catch (err) {
       console.error("Error in countFollowing:", err)
@@ -59,7 +73,7 @@ class Follower {
     }
   }
 
-  static async countFollowing(userId) {
+  static async countFollowers(userId) {
     try {
       const db = await database()
       const followingsCollection = db.collection("followers")
@@ -72,8 +86,8 @@ class Follower {
       // Jika hasilnya kosong, berarti followers-nya 0
       return result[0]?.totalFollowers || 0
     } catch (err) {
-      console.error("Error in countFollowing:", err)
-      throw new Error("Error counting following")
+      console.error("Error in countFollowers:", err)
+      throw new Error("Error counting followers")
     }
   }
 

@@ -1,8 +1,6 @@
 const User = require("../models/User")
 const { GraphQLError } = require('graphql')
 
-
-// Definisi schema menggunakan #graphql, tanpa gql
 const typeDefs = `#graphql
 type User {
     _id: ID!
@@ -11,14 +9,14 @@ type User {
     email: String!
     password: String!
     post: [Post]
-    followers: [User!]!
-    followings: [User!]!
+    followers: [User]
+    followings: [User]
 }
 type Query {
     users: [User]
     userById(id: ID!): User
     searchUsers(query: String!): [User]
-    # getUserWithFollowersAndFollowing(userId: ID!): User
+    getUserWithFollowersAndFollowing(userId: ID!): User
 }
 type Token{
   access_token: String!
@@ -41,17 +39,70 @@ const resolvers = {
     users: async () => {
 
       try {
+
         const users = await User.findAll()
         return users
       } catch (err) {
         throw err
       }
     },
-    userById: async (_, { id }) => {
+    userById: async (_, { id }, { auth }) => {
       try {
-        const user = await User.findById(id)
-        return user
+        const signInUser = await auth()
+        let user
+        if (!id) {
+          user = await User.findById(signInUser.id)
+        } else {
+          user = await User.findById(id)
+        }
+        console.log(user, "userById")
+        if (!user) {
+          throw new GraphQLError("User not found.", {
+            extensions: {
+              code: "BAD_REQUEST",
+            },
+          })
+        }
+        let followers = user.followers || []
+        let followings = []
+
+        if (Array.isArray(followers)) {
+          followers = followers.filter(follower => follower !== null && follower !== undefined)
+          followers = followers.map(follower => ({
+            _id: follower._id ? follower._id : "",
+            username: follower.username || "Unknown",
+          }))
+        }
+
+        // Menangani followings
+        if (user.followings && Array.isArray(user.followings)) {
+          followings = await Promise.all(
+            user.followings.map(async (follow) => {
+              if (!follow || !follow.followingId) return null
+              const followingUser = await User.findById(follow.followingId)
+              if (followingUser) {
+                return {
+                  _id: followingUser._id ? followingUser._id : "",
+                  username: followingUser.username || "Unknown",
+                }
+              }
+              return null
+            })
+          )
+          followings = followings.filter(Boolean)
+        }
+
+        return {
+          _id: user._id || "",
+          name: user.name || "Unknown",
+          username: user.username || "Unknown",
+          email: user.email || "Unknown",
+          posts: user.posts || [],
+          followers,
+          followings,
+        }
       } catch (err) {
+        console.error(err)
         throw err
       }
     },
@@ -63,42 +114,54 @@ const resolvers = {
         throw err
       }
     },
-    // getUserWithFollowersAndFollowing: async (_, { userId }) => {
-    //   return await User.follower(userId)
-    // },
-  },
-  Mutation: {
-    registerUser: async (_, { user }) => {
-      const { name, username, email, password } = user
+    getUserWithFollowersAndFollowing: async (_, { userId }) => {
       try {
-        const newUser = await User.register(name, username, email, password)
-        return newUser
-      } catch (err) {
-        console.error("Error during user registration:", err.message) // Log error lebih jelas
-
-        // Jika email sudah terdaftar
-        if (err.message === "Email sudah terdaftar.") {
-          throw new GraphQLError("Email sudah terdaftar.", {
+        const user = await User.getUserWithFollowersAndFollowing(userId)
+        console.log(user, ">>>")
+        if (!user) {
+          throw new GraphQLError("User not found.", {
             extensions: {
               code: "BAD_REQUEST",
-              http: { status: 400 },
             },
           })
         }
 
-        // Untuk error lainnya, beri penanganan lebih jelas
-        throw new GraphQLError("Gagal mendaftarkan pengguna baru.", {
+        return user
+      } catch (err) {
+        console.error("Error in getUserWithFollowersAndFollowing:", err)
+        throw new GraphQLError("Failed to fetch user data.", {
           extensions: {
             code: "INTERNAL_SERVER_ERROR",
-            http: { status: 500 },
+          },
+        })
+      }
+
+    },
+  },
+  Mutation: {
+    registerUser: async (_, { user }) => {
+      try {
+        const newUser = await User.register(user.name, user.username, user.email, user.password)
+        return newUser
+      } catch (err) {
+        if (err.message === "Email sudah terdaftar.") {
+          throw new GraphQLError("Email already registered.", {
+            extensions: {
+              code: "BAD_REQUEST",
+            },
+          })
+        }
+        throw new GraphQLError("Registration failed.", {
+          extensions: {
+            code: "INTERNAL_SERVER_ERROR",
           },
         })
       }
     },
     loginUser: async (_, { email, password }) => {
       try {
-        const accessToken = await User.login(email, password)
-        return accessToken
+        const access_token = await User.login(email, password)
+        return access_token
       } catch (err) {
         if (err.message === "Pengguna tidak ditemukan.") {
           throw new GraphQLError("Pengguna tidak ditemukan.", {
