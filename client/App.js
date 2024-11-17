@@ -1,46 +1,38 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
 import { ApolloProvider } from '@apollo/client'
-import { NavigationContainer } from '@react-navigation/native'
+import { NavigationContainer, useNavigation } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Alert } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import client from './config/apollo'
 import HomeScreen from './screens/HomeScreen'
 import RegisterScreen from './screens/RegisterScreen'
 import LoginScreen from './screens/LoginScreen'
 import PostDetailScreen from './screens/PostDetailScreen'
-import { AuthContextProvider } from './contexts/auth'
-
+import { useAuth, AuthProvider, AuthContext } from './contexts/auth'
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import CreatePostScreen from './screens/CreateScreen'
+import SearchUsersScreen from './screens/SearchScreen'
+import { ActivityIndicator, View } from 'react-native'
+// import { Touchable, TouchableOpacity } from 'react-native'
+import { HomeTabs } from './screens/HomeTabs'
 
 const Stack = createNativeStackNavigator()
+const Tab = createBottomTabNavigator()
+
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(null)
 
-  useEffect(() => {
-    const checkToken = async () => {
-      const token = await SecureStore.getItemAsync('access_token')
-      if (token) {
-        setIsLoggedIn(true)
-      } else {
-        setIsLoggedIn(false)
-      }
-    }
-    checkToken()
-  }, [])
-
-  if (isLoggedIn === null) {
-    return null
-  }
+  const { isSignedIn } = useContext(AuthContext)
   return (
     <ApolloProvider client={client}>
-      <AuthContextProvider>
+      <AuthProvider>
         <SafeAreaView style={{ flex: 1 }}>
           <NavigationContainer>
             <StatusBar barStyle="light-content" backgroundColor="#0077B5" />
-            <Stack.Navigator initialRouteName={isLoggedIn ? "Home" : "Login"}>
+            <Stack.Navigator>
               <Stack.Screen
                 name="Login"
                 component={LoginScreen}
@@ -52,29 +44,20 @@ export default function App() {
                 options={{ title: "Create Account", headerShown: false }}
               />
               <Stack.Screen
-                name="Home"
-                component={HomeScreen}
-                options={{ title: "Welcome", headerShown: false }}
+                name="HomeTabs"
+                component={HomeTabs}
+                options={{ headerShown: false }}
               />
-              {/* <Stack.Screen
-              name="CreatePost"
-              component={CreatePost}
-              options={{ title: "Create New Post", headerShown: false }}
-            /> */}
               <Stack.Screen
                 name="PostDetail"
                 component={PostDetailScreen}
                 options={{ title: "Detail", headerShown: false }}
               />
-              {/* <Stack.Screen
-              name="SearchUser"
-              component={SearchScreen}
-              options={{ title: "Search", headerShown: false }}
-            /> */}
+
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaView>
-      </AuthContextProvider>
+      </AuthProvider>
     </ApolloProvider>
   )
 }

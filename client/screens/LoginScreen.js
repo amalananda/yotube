@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react"
+import React, { useContext, useEffect, useState } from "react"
 import {
   View,
   Text,
@@ -11,22 +11,25 @@ import {
 } from "react-native"
 import { useNavigation } from '@react-navigation/native'
 import { useMutation } from '@apollo/client'
-import * as SecureStore from 'expo-secure-store'
-import { LOGIN } from '../operations/auth' // Pastikan LOGIN terdefinisi dengan benar
-import AuthContext from '../contexts/auth'
+import { LOGIN } from '../operations/auth'
+import { AuthContext } from '../contexts/auth'
 
 const LoginScreen = () => {
   const navigation = useNavigation()
-  const { setIsSignedIn, setUser } = useContext(AuthContext)
-  // const { isSignedIn, setIsSignedIn, user, setUser } = useContext(AuthContext)
+  const { signIn, isLoading, isSignedIn } = useContext(AuthContext)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [login, { loading }] = useMutation(LOGIN)
+  useEffect(() => {
+    if (isSignedIn) {
+      navigation.replace('HomeTabs')
+    }
+  }, [isSignedIn, navigation])
 
   const handleLogin = async () => {
-    setIsSignedIn(true)
-    setUser({})
+    // setIsSignedIn(true)
+    // setUser({})
     if (!email.trim() || !password.trim()) {
       return Alert.alert("Input Error", "Email dan password tidak boleh kosong.")
     }
@@ -35,17 +38,12 @@ const LoginScreen = () => {
       const { data } = await login({
         variables: { email, password }
       })
+      const token = data.loginUser.access_token
 
-      // Periksa jika akses token ada dalam data loginUser
-      if (data?.loginUser?.access_token) {
-        await SecureStore.setItemAsync('access_token', data.loginUser.access_token)
-        console.log("Token saved:", await SecureStore.getItemAsync('access_token'))
+      if (token) {
 
-        // Set status login ke authContext
-        setIsSignedIn(true)
+        signIn(token)
 
-        // Navigasi ke halaman Home
-        navigation.replace('Home')
       } else {
         throw new Error("Invalid login response.")
       }
@@ -55,6 +53,7 @@ const LoginScreen = () => {
     }
   }
 
+
   return (
     <View style={styles.container}>
       <Image
@@ -63,7 +62,7 @@ const LoginScreen = () => {
       />
 
       <TextInput
-        placeholder="Email or Username"
+        placeholder="Email"
         placeholderTextColor="#aaa"
         style={styles.input}
         keyboardType="email-address"
