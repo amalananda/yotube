@@ -26,6 +26,7 @@ async function startServer() {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
+    introspection: true,
   })
 
   startStandaloneServer(server, {
